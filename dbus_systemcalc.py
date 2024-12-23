@@ -986,17 +986,20 @@ class SystemCalc:
 						c = _safeadd(c, ac_out)
 						a = _safeadd(a, i)
 				else:
-					ac_out = self._dbusmonitor.get_value(multi_path, '/Ac/Out/%s/P' % phase)
+					# Retrieve power and current values, with overwrites for L1 and L2
+					ac_out = (
+						self._dbusmonitor.get_value('com.victronenergy.vebus.ttyS4', '/Devices/0/Ac/Out/P') if phase == "L1" else
+						self._dbusmonitor.get_value('com.victronenergy.vebus.ttyS4', '/Devices/3/Ac/Out/P') if phase == "L2" else
+						self._dbusmonitor.get_value(multi_path, '/Ac/Out/%s/P' % phase)
+					)
+					ac_out = ac_out if ac_out not in (None, 0.0) else None  # Handle 0.0 as None
 					c = _safeadd(c, ac_out)
-					i_out = self._dbusmonitor.get_value(multi_path, '/Ac/Out/%s/I' % phase)
+					i_out = (
+						float(ac_out) / 230 if phase in ["L1", "L2"] and ac_out not in (None, 0.0) else
+						self._dbusmonitor.get_value(multi_path, '/Ac/Out/%s/I' % phase)
+					)
+					i_out = i_out if i_out not in (None, 0.0) else None  # Handle 0.0 as None
 					a = _safeadd(a, i_out)
-				# Overwrite values for L1 and L2
-				if phase == "L1":
-					c = self._dbusmonitor.get_value('com.victronenergy.vebus.ttyS4', '/Devices/0/Ac/Out/P') or 0.0  # Example: Overwrite L1 power with 1000 W
-					a = float(c) / 230 if c is not None else 0.0  # Example: Overwrite L1 current with 10 A
-				elif phase == "L2":
-					c = self._dbusmonitor.get_value('com.victronenergy.vebus.ttyS4', '/Devices/3/Ac/Out/P') or 0.0   # Example: Overwrite L2 power with 800 W
-					a = float(c) / 230 if c is not None else 0.0  # Example: Overwrite L2 current with 8 A
 				c = _safemax(0, c)
 				a = _safemax(0, a)
 			newvalues['/Ac/ConsumptionOnOutput/%s/Power' % phase] = c
